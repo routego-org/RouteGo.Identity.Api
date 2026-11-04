@@ -1,0 +1,32 @@
+# Local dependencies for RouteGo.Identity.API: PostgreSQL and LocalStack (SNS/SQS).
+# Start with `docker compose up -d`, then apply migrations with scripts/apply-migrations.ps1.
+# The app itself runs on the host with `dotnet run --project RouteGo.Identity.Api`.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres
+    ports: ["5432:5432"]
+    volumes:
+      - ./infra/local/postgres-init:/docker-entrypoint-initdb.d
+      - ./migrations:/migrations:ro   # read by scripts/apply-migrations.ps1
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 10
+
+  localstack:
+    image: localstack/localstack
+    ports: ["4566:4566"]
+    environment:
+      SERVICES: sns,sqs
+      AWS_DEFAULT_REGION: ap-south-1
+      # Required by current LocalStack images. Comes from the git-ignored .env file beside this one:
+      #   LOCALSTACK_AUTH_TOKEN=<your token from app.localstack.cloud>
+      LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN:?set LOCALSTACK_AUTH_TOKEN in .env}
+    volumes:
+      - ./infra/local/localstack-init:/etc/localstack/init/ready.d
+
+volumes:
+  pgdata:
